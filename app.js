@@ -1,4 +1,3 @@
-/* AutomationTodayCA Service Report — V15 */
 /* =========================================================
    GOOGLE AUTHENTICATION LOCK
    ========================================================= */
@@ -19,130 +18,18 @@ const $=s=>document.querySelector(s);
 
 // Google Apps Script Web App endpoint. Paste the deployed /exec URL here after deployment.
 const DELIVERY_CONFIG={
-  webAppUrl:"https://script.google.com/macros/s/AKfycbxpI-rtRWmhjlhEEewXu68LFzN4xEhPiyfzbQED4wCG0_qyhBJaoQTzbeTpActu7JH9/exec"
+  webAppUrl:"https://script.google.com/macros/s/AKfycbx1sno8dbjjgdaV8P-znggJRIfXQ7RRUboVDaPI_XVKW6GE07R5Otb-98Ezbk5IvaSS-w/exec"
 };
-/* =========================================================
-   V15 SERVER-RESERVED REPORT NUMBER
-   ========================================================= */
 let currentReportNo="";
+let currentReportReservationToken="";
 let reportNoReady=false;
-let reportReservationTimer=null;
-let currentReportReservationToken=sessionStorage.getItem("atd_report_reservation_token")||"";
-
-const reportNo=()=>currentReportNo;
-
-function setReportNumberUnavailable(){
-  reportNoReady=false;
-  currentReportNo="";
-  const display=$("#reportNo");
-  const input=$("#reportInput");
-  if(display) display.textContent="REPORT NUMBER UNAVAILABLE";
-  if(input) input.value="";
-  renderReportQr("");
-  updateFormStatus();
-}
-
+function setReportNumberUnavailable(){currentReportNo="";currentReportReservationToken="";reportNoReady=false;const a=$("#reportNo"),b=$("#reportInput"),q=$("#reportQr");if(a)a.textContent="—";if(b)b.value="";if(q){q.innerHTML="";q.classList.add("hidden");}}
 setReportNumberUnavailable();
 
 const now=new Date(), localDate=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
 document.querySelector('[name="serviceDate"]').value=localDate;
-function verificationUrl(reportNumber){
-  return DELIVERY_CONFIG.webAppUrl+"?mode=verify&reportNo="+encodeURIComponent(reportNumber||"");
-}
-
-function renderReportQr(value){
-  const host=$("#reportQr");
-  if(!host)return;
-  host.innerHTML="";
-  if(!value || !window.QRCode){
-    host.classList.add("hidden");
-    return;
-  }
-  try{
-    new QRCode(host,{
-      text:verificationUrl(value),
-      width:72,
-      height:72,
-      colorDark:"#0f2b5b",
-      colorLight:"#ffffff",
-      correctLevel:QRCode.CorrectLevel.M
-    });
-    host.classList.remove("hidden");
-  }catch(err){
-    console.error("QR generation failed:",err);
-    host.classList.add("hidden");
-  }
-}
-
-function reserveReportNumber(serviceDate){
-  if(!googleAuthenticated || !googleCredential || !window.__ATD_AUTH_PROOF || !serviceDate){
-    return Promise.resolve(false);
-  }
-
-  const reservationTokenForReuse=currentReportReservationToken;
-  setReportNumberUnavailable();
-  currentReportReservationToken=reservationTokenForReuse;
-
-  return new Promise(function(resolve){
-    const callbackName="atdReportNumberCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-    const script=document.createElement("script");
-    let finished=false;
-
-    function cleanup(){
-      if(script.parentNode)script.parentNode.removeChild(script);
-      try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}
-    }
-    function finish(ok){
-      if(finished)return;
-      finished=true;
-      cleanup();
-      resolve(ok);
-    }
-
-    window[callbackName]=function(result){
-      if(result && result.ok===true && result.reportNo){
-        currentReportNo=String(result.reportNo);
-        currentReportReservationToken=String(result.reservationToken||"");
-        if(currentReportReservationToken) sessionStorage.setItem("atd_report_reservation_token",currentReportReservationToken);
-        if(result.reportNo) sessionStorage.setItem("atd_report_number",String(result.reportNo));
-        reportNoReady=!!currentReportReservationToken;
-        $("#reportNo").textContent=currentReportNo;
-        $("#reportInput").value=currentReportNo;
-        renderReportQr(currentReportNo);
-        updateFormStatus();
-        finish(true);
-      }else{
-        console.error("Report number reservation failed:",result);
-        finish(false);
-      }
-    };
-
-    script.onerror=function(){finish(false);};
-
-    const params=new URLSearchParams();
-    params.set("mode","reserveReport");
-    params.set("callback",callbackName);
-    params.set("serviceDate",serviceDate);
-    params.set("googleCredential",googleCredential);
-    params.set("authorizationProof",window.__ATD_AUTH_PROOF);
-    if(currentReportReservationToken) params.set("reservationToken",currentReportReservationToken);
-    script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();
-    document.head.appendChild(script);
-
-    setTimeout(function(){finish(false);},20000);
-  });
-}
-
-function refreshReportNumber(){
-  clearTimeout(reportReservationTimer);
-  const dateEl=document.querySelector('[name="serviceDate"]');
-  if(!dateEl || !dateEl.value)return;
-  reportReservationTimer=setTimeout(function(){reserveReportNumber(dateEl.value);},120);
-}
-
 function updateApprovalTime(){const n=new Date();$("#approvalTime").textContent=n.toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"});}
 updateApprovalTime(); setInterval(updateApprovalTime,30000);
-document.querySelector('[name="serviceDate"]').addEventListener("change",refreshReportNumber);
 
 document.querySelectorAll(".type").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".type").forEach(x=>x.classList.remove("active"));b.classList.add("active");
@@ -190,7 +77,7 @@ ctx.lineWidth=3;ctx.lineCap="round";ctx.lineJoin="round";
 canvas.addEventListener("touchstart",start,{passive:false});canvas.addEventListener("touchmove",move,{passive:false});canvas.addEventListener("touchend",end);
 function clearSignature(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;updateFormStatus()}
 function collect(){
- const fd=new FormData($("#serviceForm")),o=Object.fromEntries(fd.entries());o.reportNo=reportNo();o.reportReservationToken=currentReportReservationToken;
+ const fd=new FormData($("#serviceForm")),o=Object.fromEntries(fd.entries());o.reportNo=currentReportNo;o.reportReservationToken=currentReportReservationToken;
  o.customerEmails=[...document.querySelectorAll('[name="customerEmail"]')].map(i=>i.value.trim()).filter(Boolean);
  o.customerPhones=[...document.querySelectorAll('[name="customerPhone"]')].map(i=>i.value.trim()).filter(Boolean);
  o.email=o.customerEmails[0]||"";o.phone=o.customerPhones[0]||"";
@@ -199,7 +86,7 @@ function collect(){
  o.signature=hasSig?canvas.toDataURL("image/png"):"";o.generatedAt=new Date().toISOString();return o;
 }
 const requiredSelectors=['[name="company"]','[name="contact"]','[name="serviceDate"]','[name="startTime"]','[name="endTime"]','[name="technician"]','[name="work"]','[name="customerName"]'];
-function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);if(!reportNoReady)missing=true;return missing;}
+function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);return missing;}
 function sectionState(n){
  if(n===6)return $("#review")&&!$("#review").classList.contains("hidden")?"complete":"optional";
  if(n===3){return [...document.querySelectorAll(".equipment input")].some(i=>String(i.value||"").trim())?"complete":"optional";}
@@ -251,7 +138,7 @@ function renderReview(o,finalized=false){
  </div>
  ${acceptance}
  ${actions}
- <p class="next-report">Reserved Service Report No.: <strong>${escapeHtml(reportNo()||"REPORT NUMBER UNAVAILABLE")}</strong></p>`;
+ <p class="next-report">Service Report Number is assigned only after <strong>SUBMIT &amp; CONFIRM</strong>.</p>`;
 
  $("#editReport").addEventListener("click",()=>{
    $("#review").classList.add("hidden");
@@ -266,20 +153,33 @@ function renderReview(o,finalized=false){
    $("#sendCustomerCopy").addEventListener("click",()=>deliverReport(o));
  }else{
    $("#submitConfirm").addEventListener("click",async()=>{
-     const latest=collect();
-     latest.finalizedAt=new Date().toISOString();
-     localStorage.setItem("atd_last_report",JSON.stringify(latest));
-     renderReview(latest,true);
-     window.scrollTo({top:0,behavior:"smooth"});
-     await deliverReport(latest);
+     const button=$("#submitConfirm");
+     if(button){button.disabled=true;button.textContent="CREATING REPORT...";}
+     try{
+       const latest=collect();
+       const reservation=await reserveReportNumber(latest.serviceDate);
+       if(!reservation)throw new Error("Service Report Number could not be created. Please try again.");
+       latest.reportNo=currentReportNo;
+       latest.reportReservationToken=currentReportReservationToken;
+       latest.finalizedAt=new Date().toISOString();
+       localStorage.setItem("atd_last_report",JSON.stringify(latest));
+       renderReview(latest,true);
+       window.scrollTo({top:0,behavior:"smooth"});
+       await deliverReport(latest);
+     }catch(err){
+       console.error("Submit & Confirm failed:",err);
+       alert(err&&err.message?err.message:"Service Report could not be confirmed.");
+     }finally{
+       if(button){button.disabled=false;button.textContent="SUBMIT & CONFIRM";}
+     }
    });
  }
+
 }
 
 $("#serviceForm").addEventListener("submit",e=>{
  e.preventDefault();
  const form=$("#serviceForm");
- if(!reportNoReady){alert("Service Report Number is not ready. Please wait a moment and try again.");return}
  if(!form.checkValidity() || markRequiredFields()){form.reportValidity();updateFormStatus();return}
  if(!hasSig){markRequiredFields();alert("Customer signature is required.");return}
  const o=collect();
@@ -293,23 +193,6 @@ $("#serviceForm").addEventListener("submit",e=>{
  window.scrollTo({top:0,behavior:"smooth"});
 });
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-async function makeQrDataUrl(value){
-  return new Promise(function(resolve){
-    if(!window.QRCode || !value){resolve(null);return;}
-    const host=document.createElement("div");
-    host.style.cssText="position:fixed;left:-10000px;top:-10000px;width:180px;height:180px;background:#fff;";
-    document.body.appendChild(host);
-    try{
-      new QRCode(host,{text:verificationUrl(value),width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
-      setTimeout(function(){
-        const canvas=host.querySelector("canvas"),img=host.querySelector("img");
-        const result=canvas?canvas.toDataURL("image/png"):(img?img.src:null);
-        host.remove();resolve(result);
-      },80);
-    }catch(e){host.remove();resolve(null);}
-  });
-}
-
 async function generatePDF(saveFile=true){
  try{
   const o=JSON.parse(localStorage.getItem("atd_last_report")||"null");
@@ -323,7 +206,6 @@ async function generatePDF(saveFile=true){
   const navy=[15,43,91], yellow=[255,223,34];
   const logo=new Image(); logo.src="atd-logo.png";
   await new Promise(resolve=>{logo.onload=resolve;logo.onerror=resolve});
-  const qrDataUrl=await makeQrDataUrl(o.reportNo);
 
   function textLines(text,w,size=8){doc.setFontSize(size);return doc.splitTextToSize(String(text||"—"),w)}
   function ensure(y,need=18){if(y+need>H-18){doc.addPage();return 16}return y}
@@ -359,8 +241,7 @@ async function generatePDF(saveFile=true){
   doc.setFont("helvetica","bold");doc.setFontSize(19);doc.setTextColor(...navy);doc.text("SERVICE REPORT",W/2,15,{align:"center"});
   doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(80,94,112);doc.text("Field Service Report & Customer Acceptance",W/2,20,{align:"center"});
   doc.setFont("helvetica","bold");doc.setFontSize(7);doc.text("CUSTOMER COPY",W/2,24,{align:"center"});
-  doc.setFillColor(255,248,191);doc.setDrawColor(229,207,28);doc.roundedRect(W-84,7,70,16,2,2,"FD");doc.setTextColor(50,58,68);doc.setFontSize(6.5);doc.text("SERVICE REPORT NO.",W-81,12.5);doc.setFont("courier","bold");doc.setFontSize(7.2);doc.text(o.reportNo,W-81,19);
-  if(qrDataUrl){try{doc.addImage(qrDataUrl,"PNG",W-30,26,16,16);}catch(e){}}
+  doc.setFillColor(255,248,191);doc.setDrawColor(229,207,28);doc.roundedRect(W-72,7,58,16,2,2,"FD");doc.setTextColor(50,58,68);doc.setFontSize(6.5);doc.text("SERVICE REPORT NO.",W-69,12.5);doc.setFont("courier","bold");doc.setFontSize(8);doc.text(o.reportNo,W-69,19);
 
   let y=29;
   y=section("1. CUSTOMER INFORMATION",y);
@@ -401,21 +282,17 @@ async function generatePDF(saveFile=true){
   return dataUri;
  }catch(err){console.error("Customer PDF generation failed:",err);alert("Customer PDF could not be generated. Please refresh the page and try again.");return null;}
 }
-function verifyDeliveryStatus(reportNumber){
-  return new Promise(function(resolve){
-    const callbackName="atdStatusCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-    const script=document.createElement("script");
-    let finished=false;
-    function finish(ok){if(finished)return;finished=true;try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);resolve(!!ok);}
-    window[callbackName]=function(result){finish(!!(result&&result.ok===true&&result.verified===true));};
-    script.onerror=function(){finish(false);};
-    const params=new URLSearchParams();
-    params.set("mode","status");params.set("callback",callbackName);params.set("reportNo",reportNumber);
-    script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();
-    document.head.appendChild(script);
-    setTimeout(function(){finish(false);},15000);
-  });
+function loadQRCodeLibrary(){
+ return new Promise(function(resolve,reject){
+  if(window.QRCode)return resolve(true);
+  const existing=document.querySelector("script[data-atd-qrcode]");
+  if(existing){existing.addEventListener("load",()=>resolve(!!window.QRCode),{once:true});existing.addEventListener("error",reject,{once:true});return;}
+  const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js";script.async=true;script.dataset.atdQrcode="1";script.onload=()=>resolve(!!window.QRCode);script.onerror=()=>reject(new Error("QR library could not be loaded."));document.head.appendChild(script);
+ });
 }
+async function renderReportQr(value){const host=$("#reportQr");if(!host)return;host.innerHTML="";host.classList.add("hidden");if(!value)return;try{await loadQRCodeLibrary();if(!window.QRCode)return;new QRCode(host,{text:verificationUrl(value),width:72,height:72,colorDark:"#0f2b5b",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});host.classList.remove("hidden");}catch(err){console.error("QR generation failed:",err);}}
+function verificationUrl(reportNumber){return DELIVERY_CONFIG.webAppUrl+"?mode=verify&reportNo="+encodeURIComponent(reportNumber||"");}
+function reserveReportNumber(serviceDate){if(!googleAuthenticated||!window.__ATD_AUTH_PROOF||!serviceDate)return Promise.resolve(false);return new Promise(function(resolve){const callbackName="atdReportNumberCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2),script=document.createElement("script");let finished=false;function cleanup(){if(script.parentNode)script.parentNode.removeChild(script);try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}}function finish(ok){if(finished)return;finished=true;cleanup();resolve(ok);}window[callbackName]=function(result){if(result&&result.ok===true&&result.reportNo&&result.reservationToken){currentReportNo=String(result.reportNo);currentReportReservationToken=String(result.reservationToken);reportNoReady=true;$("#reportNo").textContent=currentReportNo;$("#reportInput").value=currentReportNo;Promise.resolve(renderReportQr(currentReportNo)).finally(function(){updateFormStatus();finish(true);});}else finish(false);};script.onerror=function(){finish(false);};const params=new URLSearchParams();params.set("mode","reserveReport");params.set("callback",callbackName);params.set("serviceDate",serviceDate);params.set("authorizationProof",window.__ATD_AUTH_PROOF);script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();document.head.appendChild(script);setTimeout(function(){finish(false);},20000);});}
 
 async function deliverReport(o){
  const status=$("#deliveryStatus");
@@ -426,10 +303,6 @@ async function deliverReport(o){
    return false;
  }
  try{
-   if(!reportNoReady || !o || !o.reportNo){
-     if(status) status.textContent="Service Report Number is not ready. Please wait and try again.";
-     return false;
-   }
    if(button){button.disabled=true;button.textContent="SENDING...";}
    const dataUri=await generatePDF(false);
    if(!dataUri) throw new Error("PDF generation failed");
@@ -438,7 +311,6 @@ async function deliverReport(o){
      googleCredential,
      authorizationProof:window.__ATD_AUTH_PROOF||"",
      reportNo:o.reportNo,
-     reportReservationToken:o.reportReservationToken||currentReportReservationToken,
      customerEmail:o.email,
      customerEmails:o.customerEmails||[o.email].filter(Boolean),
      company:o.company,
@@ -447,13 +319,8 @@ async function deliverReport(o){
      filename:`${o.reportNo}.pdf`
    };
    // text/plain avoids a browser CORS preflight when calling Google Apps Script.
-   await fetch(DELIVERY_CONFIG.webAppUrl,{method:"POST",mode:"no-cors",redirect:"follow",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
-   if(status) status.innerHTML="✓ Customer copy delivery request submitted. Verifying the official archive…";
-   // Apps Script POST responses are opaque under no-cors. Verify completion through a read-only JSONP status endpoint.
-   await new Promise(r=>setTimeout(r,1800));
-   const verified=await verifyDeliveryStatus(o.reportNo);
-   if(!verified) throw new Error("Server could not confirm the saved Service Report.");
-   if(status) status.innerHTML="✓ Customer copy saved and verified. The PDF was saved to Google Drive and emailed.";
+   await fetch(DELIVERY_CONFIG.webAppUrl,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(payload)});
+   if(status) status.innerHTML="✓ Customer copy delivery request sent. The PDF is being saved to Google Drive and emailed.";
    localStorage.setItem("atd_last_delivery",new Date().toISOString());
    return true;
  }catch(err){
@@ -726,10 +593,12 @@ async function handleGoogleCredential(response){
     }
 
     googleAuthenticated=true;
-    persistAuthSession(credential,proof.proof);
+    googleCredential=credential;
+    window.__ATD_AUTH_PROOF=proof.proof;
+    localStorage.setItem("atd_auth_proof",proof.proof);
+    localStorage.setItem("atd_google_session","1");
 
     unlockServiceReport();
-    await reserveReportNumber(document.querySelector('[name="serviceDate"]')?.value || "");
 
   }catch(err){
 
@@ -939,61 +808,8 @@ function unlockServiceReport(){
 }
 
 
-function checkGoogleSession(){
-  const savedProof=sessionStorage.getItem("atd_auth_proof")||"";
-  const savedCredential=sessionStorage.getItem("atd_google_credential")||"";
-  if(savedProof){
-    window.__ATD_AUTH_PROOF=savedProof;
-    googleCredential=savedCredential||null;
-    googleAuthenticated=true;
-    return true;
-  }
-  googleAuthenticated=false;
-  googleCredential=null;
-  window.__ATD_AUTH_PROOF="";
-  return false;
-}
-
-function persistAuthSession(credential,proof){
-  googleCredential=credential||null;
-  window.__ATD_AUTH_PROOF=proof||"";
-  if(proof) sessionStorage.setItem("atd_auth_proof",proof);
-  if(credential) sessionStorage.setItem("atd_google_credential",credential);
-}
-
-function clearAuthSession(){
-  googleAuthenticated=false;
-  googleCredential=null;
-  window.__ATD_AUTH_PROOF="";
-  currentReportReservationToken="";
-  sessionStorage.removeItem("atd_report_reservation_token");
-  sessionStorage.removeItem("atd_report_number");
-  sessionStorage.removeItem("atd_auth_proof");
-  sessionStorage.removeItem("atd_google_credential");
-}
-
-function restoreServerSession(){
-  return new Promise(function(resolve){
-    const proof=window.__ATD_AUTH_PROOF;
-    if(!proof){resolve(false);return;}
-    const callbackName="atdSessionCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-    const script=document.createElement("script");
-    let done=false;
-    const finish=function(ok){if(done)return;done=true;try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}if(script.parentNode)script.parentNode.removeChild(script);resolve(!!ok);};
-    window[callbackName]=function(result){
-      if(result&&result.ok===true&&result.authorized===true){
-        googleAuthenticated=true;
-        finish(true);
-      }else finish(false);
-    };
-    script.onerror=function(){finish(false);};
-    const params=new URLSearchParams();
-    params.set("mode","restore");params.set("callback",callbackName);params.set("authorizationProof",proof);
-    script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();
-    document.head.appendChild(script);
-    setTimeout(function(){finish(false);},15000);
-  });
-}
+function checkGoogleSession(){const savedProof=String(localStorage.getItem("atd_auth_proof")||"").trim();if(!savedProof)return false;googleAuthenticated=true;googleCredential=null;window.__ATD_AUTH_PROOF=savedProof;return true;}
+function restoreGoogleSession(){const savedProof=String(localStorage.getItem("atd_auth_proof")||"").trim();if(!savedProof)return Promise.resolve(false);return new Promise(function(resolve){const callbackName="atdSessionCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2),script=document.createElement("script");let finished=false;function cleanup(){if(script.parentNode)script.parentNode.removeChild(script);try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}}function finish(ok){if(finished)return;finished=true;cleanup();resolve(ok);}window[callbackName]=function(result){if(result&&result.ok===true&&result.authorized===true){googleAuthenticated=true;window.__ATD_AUTH_PROOF=savedProof;unlockServiceReport();finish(true);}else finish(false);};script.onerror=function(){finish(false);};const params=new URLSearchParams();params.set("mode","restore");params.set("callback",callbackName);params.set("authorizationProof",savedProof);script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();document.head.appendChild(script);setTimeout(function(){finish(false);},12000);});}
 
 
 async function startGoogleAuthentication(){
@@ -1050,22 +866,28 @@ async function startGoogleAuthentication(){
 
 function googleLogout(){
 
-  clearAuthSession();
+  googleAuthenticated=false;
+  googleCredential=null;
+  window.__ATD_AUTH_PROOF="";
+  localStorage.removeItem("atd_auth_proof");
+  localStorage.removeItem("atd_google_session");
+
+  sessionStorage.removeItem(
+    "atd_google_authenticated"
+  );
+
+  sessionStorage.removeItem(
+    "atd_google_email"
+  );
+
+  sessionStorage.removeItem(
+    "atd_google_name"
+  );
+
   location.reload();
 
 }
 
 
-/* Restore the server-authorized browser session when possible. */
-(async function(){
-  if(checkGoogleSession()){
-    const restored=await restoreServerSession();
-    if(restored){
-      unlockServiceReport();
-      await reserveReportNumber(document.querySelector('[name="serviceDate"]')?.value||"");
-      return;
-    }
-    clearAuthSession();
-  }
-  startGoogleAuthentication();
-})();
+/* Start authentication after the Service Report code has loaded. */
+if(checkGoogleSession()){restoreGoogleSession().then(function(ok){if(!ok){localStorage.removeItem("atd_auth_proof");localStorage.removeItem("atd_google_session");lockServiceReport();startGoogleAuthentication();}else unlockServiceReport();});}else{startGoogleAuthentication();}
