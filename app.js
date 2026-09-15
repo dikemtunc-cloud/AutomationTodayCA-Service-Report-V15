@@ -29,38 +29,136 @@ const now=new Date(), localDate=new Date(now-now.getTimezoneOffset()*60000).toIS
 document.querySelector('[name="serviceDate"]').value=localDate;
 
 function reserveReportNumber(serviceDate){
-  if(!googleAuthenticated || !googleCredential || !window.__ATD_AUTH_PROOF || !serviceDate) return Promise.resolve(false);
-  return new Promise(function(resolve){
-    const callbackName="atdReportNumberCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-    const script=document.createElement("script");
-    let finished=false;
-    function cleanup(){try{delete window[callbackName];}catch(_){window[callbackName]=undefined;} if(script.parentNode)script.parentNode.removeChild(script);}
-    function finish(ok){if(finished)return;finished=true;cleanup();resolve(ok);}
-    window[callbackName]=function(result){
-      if(result && result.ok===true && result.reportNo){
-        currentReportNo=String(result.reportNo);
-        reportNoReady=true;
-        $("#reportNo").textContent=currentReportNo;
-        $("#reportInput").value=currentReportNo;
-        updateFormStatus();
-        finish(true);
-      }else{
-        reportNoReady=false;
-        $("#reportNo").textContent="REPORT NUMBER UNAVAILABLE";
-        $("#reportInput").value="";
-        finish(false);
-      }
-    };
-    script.onerror=function(){finish(false);};
-    const params=new URLSearchParams();
+  if(!googleAuthenticated || !googleCredential || !window.__ATD_AUTH_PROOF || !serviceDate){
+    return Promise.resolve(false);
+  }
+
+  /*
+   * V15 FIX:
+   * Use a single CORS GET request for report-number reservation and
+   * parse the Apps Script JSONP envelope as data.
+   *
+   * This avoids relying on execution of a cross-origin <script> tag
+   * after the Apps Script 302 redirect, which could leave the UI
+   * showing "REPORT NUMBER UNAVAILABLE" even though the request
+   * reached the Web App.
+   *
+   * SECURITY IS UNCHANGED:
+   * - Google ID token is still verified by Code.gs.
+   * - authorizationProof is still required.
+   * - No private secret is placed in the frontend.
+   * - The frontend still does not make the authorization decision.
+   */
+
+  return new Promise(async function(resolve){
+
+    const params = new URLSearchParams();
     params.set("mode","reserveReport");
-    params.set("callback",callbackName);
+    params.set(
+      "callback",
+      "atdReportNumberCallback_" +
+      Date.now() +
+      "_" +
+      Math.random().toString(36).slice(2)
+    );
     params.set("serviceDate",serviceDate);
     params.set("googleCredential",googleCredential);
     params.set("authorizationProof",window.__ATD_AUTH_PROOF);
-    script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();
-    document.head.appendChild(script);
-    setTimeout(function(){finish(false);},20000);
+
+    const requestUrl =
+      DELIVERY_CONFIG.webAppUrl +
+      "?" +
+      params.toString();
+
+    let timeoutId = null;
+    let finished = false;
+
+    function finish(ok){
+      if(finished) return;
+      finished = true;
+      if(timeoutId) clearTimeout(timeoutId);
+      resolve(ok);
+    }
+
+    timeoutId = setTimeout(function(){
+      reportNoReady = false;
+      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
+      $("#reportInput").value = "";
+      finish(false);
+    },25000);
+
+    try{
+      const response = await fetch(
+        requestUrl,
+        {
+          method:"GET",
+          mode:"cors",
+          credentials:"omit",
+          cache:"no-store",
+          redirect:"follow"
+        }
+      );
+
+      if(!response.ok){
+        throw new Error("Report-number server returned HTTP " + response.status);
+      }
+
+      const body = await response.text();
+
+      /*
+       * Expected backend response:
+       *   atdReportNumberCallback_xxx({...});
+       *
+       * We parse only the JSON object. No arbitrary response code
+       * is executed in the browser.
+       */
+      const open = body.indexOf("(");
+      const close = body.lastIndexOf(")");
+
+      if(open < 0 || close <= open){
+        throw new Error("Invalid report-number response.");
+      }
+
+      const jsonText = body.slice(open + 1, close).trim();
+      const result = JSON.parse(jsonText);
+
+      if(result && result.ok === true && result.reportNo){
+        currentReportNo = String(result.reportNo);
+        reportNoReady = true;
+
+        $("#reportNo").textContent = currentReportNo;
+        $("#reportInput").value = currentReportNo;
+
+        updateFormStatus();
+        finish(true);
+        return;
+      }
+
+      reportNoReady = false;
+      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
+      $("#reportInput").value = "";
+
+      console.error(
+        "Report-number reservation rejected by server:",
+        result && result.error ? result.error : result
+      );
+
+      finish(false);
+
+    }catch(err){
+
+      console.error(
+        "Report-number reservation failed:",
+        err
+      );
+
+      reportNoReady = false;
+      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
+      $("#reportInput").value = "";
+
+      finish(false);
+    }
+
   });
 }
 
