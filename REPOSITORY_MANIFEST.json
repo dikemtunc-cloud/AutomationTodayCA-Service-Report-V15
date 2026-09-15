@@ -1,0 +1,46 @@
+{
+  "repository": "AutomationTodayCA Service Report \u2014 QR Verification",
+  "security_baseline": "Existing Google authentication/security implementation preserved; no security code was intentionally modified for the QR feature.",
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 26,
+      "sha256": "51bc9658d75a135fa3844e3353f27f7ed178cee8802e21d5d6fc6db61e6e773f"
+    },
+    {
+      "path": "README.md",
+      "bytes": 1876,
+      "sha256": "bd29ebc53f40b7ccddc5b23e32abb75de78130577e74c663e6a7bceeefdda2f7"
+    },
+    {
+      "path": "app.js",
+      "bytes": 39188,
+      "sha256": "64c7011b921b474f797d43f3684024d61c2ea01df120cf269f1a4894dd612b08"
+    },
+    {
+      "path": "atd-logo.png",
+      "bytes": 151933,
+      "sha256": "779962277332a15bcabb9a31b7334d74eb347e5bfa7607ec7358c8fb30d092a4"
+    },
+    {
+      "path": "backend/Code.gs",
+      "bytes": 26769,
+      "sha256": "6b4b6af4daccd33d1308503bcbad4f65456a47bcdcb9840a08b5e3d9e75e4397"
+    },
+    {
+      "path": "index.html",
+      "bytes": 10303,
+      "sha256": "ef3203dcb8b932219d4279eafdaf926919c660a98af1cbd091efe3b33e2f6735"
+    },
+    {
+      "path": "style.css",
+      "bytes": 13425,
+      "sha256": "7999dbe017c0a50af483d8a167c321d447d17bfbc01b772a39c97b45b3e029b5"
+    },
+    {
+      "path": "verification.html",
+      "bytes": 7000,
+      "sha256": "43f4a9438b964454b6fe1b27b3996ce6a1b12d0644dc84adf5765baf03fcd032"
+    }
+  ]
+}
