@@ -106,8 +106,10 @@ function reserveReportNumber(serviceDate){
         if(currentReportReservationToken) sessionStorage.setItem("atd_report_reservation_token",currentReportReservationToken);
         if(result.reportNo) sessionStorage.setItem("atd_report_number",String(result.reportNo));
         reportNoReady=!!currentReportReservationToken;
-        // Keep the Service Report Number and QR hidden until the user has confirmed.
-        // The number is generated here, but it is not rendered into the form.
+        $("#reportNo").textContent=currentReportNo;
+        $("#reportInput").value=currentReportNo;
+        renderReportQr(currentReportNo);
+        updateFormStatus();
         finish(true);
       }else{
         console.error("Report number reservation failed:",result);
@@ -131,10 +133,16 @@ function reserveReportNumber(serviceDate){
   });
 }
 
+function refreshReportNumber(){
+  clearTimeout(reportReservationTimer);
+  const dateEl=document.querySelector('[name="serviceDate"]');
+  if(!dateEl || !dateEl.value)return;
+  reportReservationTimer=setTimeout(function(){reserveReportNumber(dateEl.value);},120);
+}
+
 function updateApprovalTime(){const n=new Date();$("#approvalTime").textContent=n.toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"});}
 updateApprovalTime(); setInterval(updateApprovalTime,30000);
-// Service Report Number is intentionally NOT requested on page load or date change.
-// It is created only after SUBMIT & CONFIRM.
+document.querySelector('[name="serviceDate"]').addEventListener("change",refreshReportNumber);
 
 document.querySelectorAll(".type").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".type").forEach(x=>x.classList.remove("active"));b.classList.add("active");
@@ -191,7 +199,7 @@ function collect(){
  o.signature=hasSig?canvas.toDataURL("image/png"):"";o.generatedAt=new Date().toISOString();return o;
 }
 const requiredSelectors=['[name="company"]','[name="contact"]','[name="serviceDate"]','[name="startTime"]','[name="endTime"]','[name="technician"]','[name="work"]','[name="customerName"]'];
-function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);return missing;}
+function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);if(!reportNoReady)missing=true;return missing;}
 function sectionState(n){
  if(n===6)return $("#review")&&!$("#review").classList.contains("hidden")?"complete":"optional";
  if(n===3){return [...document.querySelectorAll(".equipment input")].some(i=>String(i.value||"").trim())?"complete":"optional";}
@@ -258,14 +266,7 @@ function renderReview(o,finalized=false){
    $("#sendCustomerCopy").addEventListener("click",()=>deliverReport(o));
  }else{
    $("#submitConfirm").addEventListener("click",async()=>{
-       const latest=collect();
-     const reserved=await reserveReportNumber(latest.serviceDate);
-     if(!reserved || !reportNoReady || !currentReportNo || !currentReportReservationToken){
-       alert("Service Report Number could not be created. Please try again.");
-       return;
-     }
-     latest.reportNo=currentReportNo;
-     latest.reportReservationToken=currentReportReservationToken;
+     const latest=collect();
      latest.finalizedAt=new Date().toISOString();
      localStorage.setItem("atd_last_report",JSON.stringify(latest));
      renderReview(latest,true);
@@ -278,6 +279,7 @@ function renderReview(o,finalized=false){
 $("#serviceForm").addEventListener("submit",e=>{
  e.preventDefault();
  const form=$("#serviceForm");
+ if(!reportNoReady){alert("Service Report Number is not ready. Please wait a moment and try again.");return}
  if(!form.checkValidity() || markRequiredFields()){form.reportValidity();updateFormStatus();return}
  if(!hasSig){markRequiredFields();alert("Customer signature is required.");return}
  const o=collect();
