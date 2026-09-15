@@ -18,7 +18,7 @@ const $=s=>document.querySelector(s);
 
 // Google Apps Script Web App endpoint. Paste the deployed /exec URL here after deployment.
 const DELIVERY_CONFIG={
-  webAppUrl:"https://script.google.com/macros/s/AKfycbzMlGpSFI9ZQL40fxq4rWSvCyFHRtzqLjEMT5cKy3lz2XVZw9d9YIrFFQ52XTa7SKBzTA/exec"
+  webAppUrl:"https://script.google.com/macros/s/AKfycbxpI-rtRWmhjlhEEewXu68LFzN4xEhPiyfzbQED4wCG0_qyhBJaoQTzbeTpActu7JH9/exec"
 };
 let currentReportNo="";
 let reportNoReady=false;
