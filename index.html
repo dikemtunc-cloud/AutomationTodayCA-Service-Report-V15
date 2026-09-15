@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AutomationTodayCA | Service Report</title>
+<link rel="stylesheet" href="style.css?v=7">
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <img src="atd-logo.png" class="logo" alt="ATD.CA AutomationTodayCA">
+    <div class="tagline">Reliable Solutions for a Smarter Tomorrow<br><span>SERVICE &nbsp;|&nbsp; SUPPORT &nbsp;|&nbsp; SOLUTIONS</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <div>
+      <h1>SERVICE REPORT</h1>
+      <p>Field Service Report &amp; Customer Acceptance</p>
+    </div>
+    <div class="report-box">
+      <div class="report-label">SERVICE REPORT NO.</div>
+      <div class="report-number" id="reportNo">SR_ATD_22AD0005001</div>
+    </div>
+  </div>
+
+  <div class="progress">
+    <div class="step active" data-status="required"><b>1</b><span>Customer</span></div>
+    <div class="line"></div>
+    <div class="step" data-status="required"><b>2</b><span>Service Info</span></div>
+    <div class="line"></div>
+    <div class="step" data-status="required"><b>3</b><span>Equipment</span></div>
+    <div class="line"></div>
+    <div class="step" data-status="required"><b>4</b><span>Work &amp; Materials</span></div>
+    <div class="line"></div>
+    <div class="step" data-status="required"><b>5</b><span>Review &amp; Sign</span></div>
+    <div class="line"></div>
+    <div class="step" data-status="required"><b>6</b><span>Complete</span></div>
+  </div>
+  <div class="status-legend"><span><i class="legend-dot green"></i>Complete</span><span><i class="legend-dot yellow"></i>Missing optional info</span><span><i class="legend-dot red"></i>Missing required info</span></div>
+
+<form id="serviceForm">
+<section class="card">
+  <div class="section-title"><span>👥</span><strong>1. CUSTOMER INFORMATION</strong><small>Please enter the customer details.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="grid customer-grid">
+    <label class="yellow-field">Company Name *<input name="company" placeholder="e.g. ABC Manufacturing Inc." required></label>
+    <label>Contact Person *<input name="contact" placeholder="e.g. John Smith" required></label>
+    <div class="dynamic-contact"><div class="field-label">Email <span>*</span></div><div id="customerEmailList" class="contact-list"><div class="contact-row email-row"><span class="contact-icon">✉</span><input type="email" name="customerEmail" placeholder="e.g. john@company.com" required><button type="button" class="remove-contact" onclick="removeContactRow(this)" aria-label="Remove email">🗑</button></div></div><button type="button" class="add-contact" onclick="addCustomerEmail()">＋ Add Email</button></div>
+    <div class="dynamic-contact"><div class="field-label">Phone</div><div id="customerPhoneList" class="contact-list"><div class="contact-row phone-row"><span class="contact-icon">☎</span><input name="customerPhone" placeholder="e.g. 416-555-1234"><button type="button" class="remove-contact" onclick="removeContactRow(this)" aria-label="Remove phone">🗑</button></div></div><button type="button" class="add-contact" onclick="addCustomerPhone()">＋ Add Phone</button></div>
+    <label class="full">Service Address<input name="address" placeholder="e.g. 123 Industrial Road"></label>
+    <label>City<input name="city" placeholder="e.g. Toronto"></label>
+    <label>Province<select name="province"><option>ON</option><option>AB</option><option>BC</option><option>MB</option><option>NB</option><option>NL</option><option>NS</option><option>NT</option><option>NU</option><option>PE</option><option>QC</option><option>SK</option><option>YT</option></select></label>
+    <label>Postal Code<input name="postal" placeholder="e.g. M1A 1A1"></label>
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-title"><span>▣</span><strong>2. SERVICE INFORMATION</strong><small>Enter service details and select service type.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="grid service-grid">
+    <label class="locked">Service Report No.<input id="reportInput" name="reportNo" readonly></label>
+    <label class="yellow-field">Service Date *<input type="date" name="serviceDate" required></label>
+    <label class="yellow-field">Start Time *<input type="time" name="startTime" required></label>
+    <label class="yellow-field">End Time *<input type="time" name="endTime" required></label>
+    <label>Technician *<input name="technician" placeholder="e.g. Your Name" required></label>
+    <label>PO Number<input name="po" placeholder="e.g. PO-45872"></label>
+    <label>Customer Work Order #<input name="workOrder" placeholder="e.g. WO-12345"></label>
+  </div>
+  <div class="service-types">
+    <div class="mini-label">SERVICE TYPE *</div>
+    <div class="type-grid">
+      <button type="button" class="type active" data-value="Troubleshooting">🔧 Troubleshooting</button>
+      <button type="button" class="type" data-value="Preventive Maintenance">⚙ Preventive<br>Maintenance</button>
+      <button type="button" class="type" data-value="Installation">▰ Installation</button>
+      <button type="button" class="type" data-value="Repair">🔧 Repair</button>
+      <button type="button" class="type" data-value="Inspection">⌕ Inspection</button>
+      <button type="button" class="type" data-value="Other">••• Other</button>
+    </div>
+    <input type="hidden" name="serviceType" value="Troubleshooting">
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-title"><span>⚙</span><strong>3. EQUIPMENT INFORMATION</strong><small>Add the equipment / machine details.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div id="equipmentList">
+    <div class="repeat equipment">
+      <div class="grid six">
+        <label>Equipment / Machine<input name="equipment" placeholder="e.g. Temperature Controller"></label>
+        <label>Manufacturer<input name="manufacturer" placeholder="e.g. JUMO"></label>
+        <label>Model<input name="model" placeholder="e.g. dTRON 304"></label>
+        <label>Serial Number<input name="serial" placeholder="e.g. 12345678"></label>
+        <label>Part Number<input name="partNumber" placeholder="e.g. 703044/..."></label>
+        <label>Location / Tag<input name="location" placeholder="e.g. Line 2 – Oven #3"></label>
+      </div>
+      <button type="button" class="remove" onclick="removeRow(this)">🗑</button>
+    </div>
+  </div>
+  <button type="button" class="add-blue" onclick="addEquipment()">＋ Add Another Equipment</button>
+</section>
+
+<section class="card">
+  <div class="section-title"><span>▣</span><strong>4. WORK PERFORMED &amp; MATERIALS</strong><small>Describe the work performed and add materials used.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="work-grid">
+    <label>Work Performed *<textarea name="work" placeholder="Describe the work performed in detail..." rows="5" required></textarea></label>
+    <div>
+      <div class="mini-label">PARTS / MATERIALS USED</div>
+      <div class="parts-head"><span>Part Number</span><span>Description</span><span>Qty</span></div>
+      <div id="partsList">
+        <div class="part-row"><input placeholder="Part No." name="partNo"><input placeholder="Description" name="partDesc"><input placeholder="Qty" name="qty" type="number" min="0" step="1"><button type="button" onclick="removeRow(this)">×</button></div>
+      </div>
+      <button type="button" class="add-green" onclick="addPart()">＋ Add Row</button>
+      <div class="status-box">
+        <div class="mini-label">SERVICE RESULT / STATUS *</div>
+        <div class="status-grid">
+          <button type="button" class="status active" data-value="Completed">● Completed</button>
+          <button type="button" class="status" data-value="Completed – Further Work Required">● Completed –<br>Further Work Required</button>
+          <button type="button" class="status" data-value="Unable to Complete">● Unable to Complete</button>
+          <button type="button" class="status" data-value="Follow-up Required">◷ Follow-up Required</button>
+        </div>
+        <input type="hidden" name="result" value="Completed">
+      </div>
+    </div>
+  </div>
+  <div class="grid notes">
+    <label>Technician Notes<textarea name="techNotes" rows="3" placeholder="Additional notes..."></textarea></label>
+    <label>Customer Comments<textarea name="customerComments" rows="3" placeholder="Customer feedback..."></textarea></label>
+  </div>
+</section>
+
+<section class="card">
+  <div class="section-title"><span>✎</span><strong>5. CUSTOMER APPROVAL</strong><small>Customer confirms the work has been completed.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="approval">
+    <label class="yellow-field">Customer Name *<input name="customerName" placeholder="e.g. John Smith" required></label>
+    <div class="signature-wrap">
+      <div class="signature-head"><span>Signature *</span><button type="button" class="clear-btn" onclick="clearSignature()">Clear</button></div>
+      <canvas id="signature" width="900" height="260"></canvas>
+    </div>
+    <div class="ack">
+      <p>I acknowledge that the services described above have been performed and that this Service Report accurately records the work completed.</p>
+      <div class="date-time" id="approvalTime"></div>
+    </div>
+  </div>
+</section>
+
+<div class="footer-actions">
+  <button type="button" class="previous" onclick="window.print()">↶ Previous / Print</button>
+  <button type="submit" class="next">Next →</button>
+</div>
+</form>
+
+<section id="review" class="card review hidden">
+  <div class="section-title"><strong>REVIEW &amp; SIGNATURE CONFIRMED</strong></div>
+  <div id="reviewContent"></div>
+</section>
+
+<footer>AUTOMATIONTODAYCA &nbsp; | &nbsp; Toronto, ON &nbsp; | &nbsp; Reliable Solutions for a Smarter Tomorrow</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="app.js?v=15"></script>
+</body>
+</html>
