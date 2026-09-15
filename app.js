@@ -17,6 +17,47 @@ const $=s=>document.querySelector(s);
   document.body.classList.add("atd-auth-locked");
 })();
 
+/*
+ * AUTH GATE FAIL-SAFE
+ * Keep the application locked, but never leave a blank page if a later
+ * initialization statement throws before the Google login UI is created.
+ * This does not grant access or change authorization logic.
+ */
+(function installAuthGateFailsafe(){
+  let recoveryStarted=false;
+  function showFallback(){
+    if(document.getElementById("atdAuthFailsafe")) return;
+    const el=document.createElement("div");
+    el.id="atdAuthFailsafe";
+    el.style.cssText="position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:#0f172a;";
+    el.innerHTML='<div style="width:min(440px,calc(100vw - 40px));padding:32px;border-radius:16px;background:#fff;text-align:center;font-family:Arial,sans-serif;box-shadow:0 20px 60px rgba(0,0,0,.3)"><div style="font-size:20px;font-weight:700;color:#1f2937">AutomationTodayCA Service Report</div><div style="margin:10px 0 22px;color:#667085">Secure sign-in is required.</div><div id="atdAuthFailsafeMessage" style="font-size:13px;color:#667085">Preparing Google Sign-In…</div><button type="button" id="atdAuthFailsafeRetry" style="display:none;margin-top:18px;padding:10px 18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer">Refresh</button></div>';
+    document.body.appendChild(el);
+  }
+  function recover(){
+    if(recoveryStarted) return;
+    recoveryStarted=true;
+    showFallback();
+    setTimeout(function(){
+      try{
+        if(typeof startGoogleAuthentication === "function") startGoogleAuthentication();
+        else throw new Error("Authentication UI could not be initialized.");
+      }catch(err){
+        console.error("Authentication UI recovery failed:",err);
+        const msg=document.getElementById("atdAuthFailsafeMessage");
+        const btn=document.getElementById("atdAuthFailsafeRetry");
+        if(msg) msg.textContent="Secure sign-in could not be initialized. Please refresh the page.";
+        if(btn){btn.style.display="inline-block";btn.onclick=function(){location.reload();};}
+      }
+    },0);
+  }
+  window.addEventListener("error",function(){
+    if(document.body.classList.contains("atd-auth-locked")) recover();
+  });
+  window.addEventListener("unhandledrejection",function(){
+    if(document.body.classList.contains("atd-auth-locked")) recover();
+  });
+})();
+
 // Google Apps Script Web App endpoint. Paste the deployed /exec URL here after deployment.
 const DELIVERY_CONFIG={
   webAppUrl:"https://script.google.com/macros/s/AKfycbxpI-rtRWmhjlhEEewXu68LFzN4xEhPiyfzbQED4wCG0_qyhBJaoQTzbeTpActu7JH9/exec"

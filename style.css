@@ -45,3 +45,8 @@
 
 /* V15 report verification QR */
 .report-box{padding-right:88px;min-height:64px}.report-qr{position:absolute;right:8px;top:7px;width:72px;height:72px;background:#fff;border:1px solid #e5d76b;border-radius:4px;padding:2px}.report-qr img,.report-qr canvas{display:block;width:66px!important;height:66px!important}.report-qr.hidden{display:none!important}@media(max-width:600px){.report-box{padding-right:7px}.report-qr{position:static;margin-top:7px;width:72px}.report-number{word-break:break-all}}
+
+/* V15 QR verification host */
+#reportQr{display:flex;justify-content:flex-end;align-items:center;margin-top:4px;min-height:0}
+#reportQr.hidden{display:none!important}
+#reportQr img,#reportQr canvas{display:block;width:56px!important;height:56px!important}
