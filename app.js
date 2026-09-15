@@ -31,12 +31,15 @@ let currentReportReservationToken=sessionStorage.getItem("atd_report_reservation
 
 const reportNo=()=>currentReportNo;
 
+
+
+const requiredSelectors=['[name="company"]','[name="contact"]','[name="serviceDate"]','[name="startTime"]','[name="endTime"]','[name="technician"]','[name="work"]','[name="customerName"]'];
 function setReportNumberUnavailable(){
   reportNoReady=false;
   currentReportNo="";
   const display=$("#reportNo");
   const input=$("#reportInput");
-  if(display) display.textContent="REPORT NUMBER UNAVAILABLE";
+  if(display) display.textContent="";
   if(input) input.value="";
   renderReportQr("");
   updateFormStatus();
@@ -133,16 +136,9 @@ function reserveReportNumber(serviceDate){
   });
 }
 
-function refreshReportNumber(){
-  clearTimeout(reportReservationTimer);
-  const dateEl=document.querySelector('[name="serviceDate"]');
-  if(!dateEl || !dateEl.value)return;
-  reportReservationTimer=setTimeout(function(){reserveReportNumber(dateEl.value);},120);
-}
 
 function updateApprovalTime(){const n=new Date();$("#approvalTime").textContent=n.toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"});}
 updateApprovalTime(); setInterval(updateApprovalTime,30000);
-document.querySelector('[name="serviceDate"]').addEventListener("change",refreshReportNumber);
 
 document.querySelectorAll(".type").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".type").forEach(x=>x.classList.remove("active"));b.classList.add("active");
@@ -198,8 +194,7 @@ function collect(){
  o.equipment=[...document.querySelectorAll(".equipment")].map(readInputs);o.parts=[...document.querySelectorAll(".part-row")].map(readInputs).filter(x=>x.partNo||x.partDesc||x.qty);
  o.signature=hasSig?canvas.toDataURL("image/png"):"";o.generatedAt=new Date().toISOString();return o;
 }
-const requiredSelectors=['[name="company"]','[name="contact"]','[name="serviceDate"]','[name="startTime"]','[name="endTime"]','[name="technician"]','[name="work"]','[name="customerName"]'];
-function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);if(!reportNoReady)missing=true;return missing;}
+function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);return missing;}
 function sectionState(n){
  if(n===6)return $("#review")&&!$("#review").classList.contains("hidden")?"complete":"optional";
  if(n===3){return [...document.querySelectorAll(".equipment input")].some(i=>String(i.value||"").trim())?"complete":"optional";}
@@ -251,7 +246,7 @@ function renderReview(o,finalized=false){
  </div>
  ${acceptance}
  ${actions}
- <p class="next-report">Reserved Service Report No.: <strong>${escapeHtml(reportNo()||"REPORT NUMBER UNAVAILABLE")}</strong></p>`;
+ ${finalized ? `<p class="next-report">Service Report No.: <strong>${escapeHtml(reportNo()||"—")}</strong></p>` : ""}`;
 
  $("#editReport").addEventListener("click",()=>{
    $("#review").classList.add("hidden");
@@ -266,12 +261,32 @@ function renderReview(o,finalized=false){
    $("#sendCustomerCopy").addEventListener("click",()=>deliverReport(o));
  }else{
    $("#submitConfirm").addEventListener("click",async()=>{
-     const latest=collect();
-     latest.finalizedAt=new Date().toISOString();
-     localStorage.setItem("atd_last_report",JSON.stringify(latest));
-     renderReview(latest,true);
-     window.scrollTo({top:0,behavior:"smooth"});
-     await deliverReport(latest);
+     const dateEl=document.querySelector('[name="serviceDate"]');
+     const serviceDate=dateEl ? String(dateEl.value||"").trim() : "";
+     if(!serviceDate){ alert("Service Date is required."); return; }
+
+     const button=$("#submitConfirm");
+     if(button){ button.disabled=true; button.textContent="CONFIRMING..."; }
+     try{
+       const reserved=await reserveReportNumber(serviceDate);
+       if(!reserved || !reportNoReady || !currentReportNo){
+         alert("Service Report Number could not be created. Please try again.");
+         return;
+       }
+       const latest=collect();
+       latest.reportNo=currentReportNo;
+       latest.reportReservationToken=currentReportReservationToken;
+       latest.finalizedAt=new Date().toISOString();
+       localStorage.setItem("atd_last_report",JSON.stringify(latest));
+       renderReview(latest,true);
+       window.scrollTo({top:0,behavior:"smooth"});
+       await deliverReport(latest);
+     }catch(err){
+       console.error("Final confirmation failed:",err);
+       alert("Service Report could not be confirmed. Please try again.");
+     }finally{
+       if(button){ button.disabled=false; button.textContent="SUBMIT & CONFIRM"; }
+     }
    });
  }
 }
@@ -279,7 +294,6 @@ function renderReview(o,finalized=false){
 $("#serviceForm").addEventListener("submit",e=>{
  e.preventDefault();
  const form=$("#serviceForm");
- if(!reportNoReady){alert("Service Report Number is not ready. Please wait a moment and try again.");return}
  if(!form.checkValidity() || markRequiredFields()){form.reportValidity();updateFormStatus();return}
  if(!hasSig){markRequiredFields();alert("Customer signature is required.");return}
  const o=collect();
@@ -729,7 +743,6 @@ async function handleGoogleCredential(response){
     persistAuthSession(credential,proof.proof);
 
     unlockServiceReport();
-    await reserveReportNumber(document.querySelector('[name="serviceDate"]')?.value || "");
 
   }catch(err){
 
@@ -1062,7 +1075,6 @@ function googleLogout(){
     const restored=await restoreServerSession();
     if(restored){
       unlockServiceReport();
-      await reserveReportNumber(document.querySelector('[name="serviceDate"]')?.value||"");
       return;
     }
     clearAuthSession();
