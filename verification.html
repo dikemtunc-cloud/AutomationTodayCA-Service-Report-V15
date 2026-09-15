@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Service Report Verification | AutomationTodayCA</title>
+  <style>
+    :root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#192333;background:#f5f7fa}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;padding:24px 14px}
+    .page{width:min(720px,100%);margin:0 auto}
+    .card{background:#fff;border:1px solid #dfe5ec;border-radius:18px;box-shadow:0 8px 30px rgba(15,43,91,.08);overflow:hidden}
+    .brand{text-align:center;padding:26px 20px 20px;border-bottom:1px solid #edf0f4}
+    .brand img{display:block;max-width:230px;max-height:70px;width:auto;height:auto;margin:0 auto 12px}
+    .brand-title{font-size:18px;font-weight:700;letter-spacing:.2px;color:#0f2b5b}
+    .brand-subtitle{margin-top:4px;font-size:13px;color:#687689}
+    .content{padding:22px}
+    .state{display:flex;align-items:center;gap:10px;padding:13px 15px;border-radius:12px;background:#e9f8ef;border:1px solid #9ed9b5;color:#116b3a;font-weight:700}
+    .state-icon{font-size:21px;line-height:1}
+    .report-number{text-align:center;margin:20px 0 22px}
+    .report-label{font-size:11px;letter-spacing:1.2px;color:#6a7788;font-weight:700}
+    .report-no{margin-top:5px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:22px;font-weight:800;color:#0f2b5b;word-break:break-word}
+    h2{font-size:14px;margin:22px 0 10px;color:#0f2b5b;border-bottom:2px solid #ffdf22;padding-bottom:7px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .field{border:1px solid #e1e6ec;border-radius:10px;padding:10px 12px;min-width:0}
+    .label{font-size:10px;text-transform:uppercase;letter-spacing:.55px;color:#758296;font-weight:700}
+    .value{margin-top:4px;font-size:14px;line-height:1.4;word-break:break-word}
+    .equipment{overflow:auto;border:1px solid #e1e6ec;border-radius:10px}
+    table{width:100%;border-collapse:collapse;min-width:600px}
+    th,td{text-align:left;padding:9px 10px;border-bottom:1px solid #e8ecf1;font-size:12px}
+    th{background:#f4f7fa;color:#42536a;font-size:10px;text-transform:uppercase;letter-spacing:.45px}
+    tr:last-child td{border-bottom:0}
+    .result{margin-top:10px;border-radius:10px;padding:12px 14px;font-weight:700;background:#eef5ff;border:1px solid #b8d3f2;color:#07549a}
+    .footer{padding:17px 22px 22px;text-align:center;color:#7b8797;font-size:11px;line-height:1.5}
+    .error{background:#fff0f1;border:1px solid #efb8bd;color:#9b1c26;padding:14px;border-radius:12px;font-weight:600}
+    .loading{padding:34px;text-align:center;color:#66758a}
+    @media(max-width:560px){
+      body{padding:10px}
+      .content{padding:16px}
+      .grid{grid-template-columns:1fr}
+      .report-no{font-size:18px}
+      .brand{padding:22px 14px 17px}
+      .brand img{max-width:190px}
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="card">
+      <header class="brand">
+        <img src="atd-logo.png" alt="AutomationTodayCA" onerror="this.style.display='none'">
+        <div class="brand-title">Service Report Verification</div>
+        <div class="brand-subtitle">AutomationTodayCA</div>
+      </header>
+      <div id="content" class="content">
+        <div class="loading">Verifying Service Report...</div>
+      </div>
+      <footer class="footer">This page confirms the service record associated with the QR code.</footer>
+    </section>
+  </main>
+
+  <script>
+    const API_URL="https://script.google.com/macros/s/AKfycbx1sno8dbjjgdaV8P-znggJRIfXQ7RRUboVDaPI_XVKW6GE07R5Otb-98Ezbk5IvaSS-w/exec";
+    const token=new URLSearchParams(location.search).get("token")||"";
+    const content=document.getElementById("content");
+
+    function escapeHtml(value){
+      return String(value??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+    }
+
+    function field(label,value){
+      return `<div class="field"><div class="label">${escapeHtml(label)}</div><div class="value">${escapeHtml(value||"—")}</div></div>`;
+    }
+
+    function render(record){
+      if(!record || record.ok!==true || !record.data){
+        content.innerHTML=`<div class="error">${escapeHtml(record&&record.error||"Service Report could not be verified.")}</div>`;
+        return;
+      }
+      const d=record.data;
+      const equipment=Array.isArray(d.equipment)?d.equipment:[];
+      const rows=equipment.length?equipment.map(e=>`<tr><td>${escapeHtml(e.equipment||"—")}</td><td>${escapeHtml(e.manufacturer||"—")}</td><td>${escapeHtml(e.model||"—")}</td><td>${escapeHtml(e.serial||"—")}</td></tr>`).join(""):`<tr><td colspan="4">No equipment recorded.</td></tr>`;
+      const verified=d.verifiedAt?new Date(d.verifiedAt).toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"}):"—";
+      content.innerHTML=`
+        <div class="state"><span class="state-icon">✓</span><span>VERIFIED SERVICE REPORT</span></div>
+        <div class="report-number"><div class="report-label">SERVICE REPORT NO.</div><div class="report-no">${escapeHtml(d.reportNo)}</div></div>
+
+        <h2>Customer Information</h2>
+        <div class="grid">
+          ${field("Company",d.company)}
+          ${field("Contact Person",d.contact)}
+          ${field("Service Date",d.serviceDate)}
+        </div>
+
+        <h2>Service Information</h2>
+        <div class="grid">
+          ${field("Technician",d.technician)}
+          ${field("Service Type",d.serviceType)}
+          ${field("Start Time",d.startTime)}
+          ${field("End Time",d.endTime)}
+          ${field("Customer Work Order",d.workOrder)}
+        </div>
+
+        <h2>Equipment</h2>
+        <div class="equipment"><table><thead><tr><th>Equipment / Machine</th><th>Manufacturer</th><th>Model</th><th>Serial Number</th></tr></thead><tbody>${rows}</tbody></table></div>
+
+        <h2>Service Result</h2>
+        <div class="result">${escapeHtml(d.result||"Completed")}</div>
+
+        <h2>Verification</h2>
+        <div class="grid">${field("Verified On",verified)}</div>`;
+    }
+
+    function loadVerification(){
+      if(!/^[A-Za-z0-9_-]{24,128}$/.test(token)){
+        render({ok:false,error:"Invalid verification link."});
+        return;
+      }
+      const callback="atdVerifyCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+      window[callback]=function(result){
+        try{render(result)}finally{try{delete window[callback]}catch(_){window[callback]=undefined}}
+      };
+      const script=document.createElement("script");
+      script.src=API_URL+"?mode=verify&token="+encodeURIComponent(token)+"&callback="+encodeURIComponent(callback);
+      script.onerror=()=>{
+        try{delete window[callback]}catch(_){window[callback]=undefined}
+        render({ok:false,error:"Verification service could not be reached."});
+      };
+      document.body.appendChild(script);
+    }
+
+    loadVerification();
+  </script>
+</body>
+</html>
