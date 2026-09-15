@@ -27,33 +27,28 @@
   </div>
 
   <div class="progress">
-    <div class="step active"><b>1</b><span>Customer</span></div>
+    <div class="step active" data-status="required"><b>1</b><span>Customer</span></div>
     <div class="line"></div>
-    <div class="step"><b>2</b><span>Service Info</span></div>
+    <div class="step" data-status="required"><b>2</b><span>Service Info</span></div>
     <div class="line"></div>
-    <div class="step"><b>3</b><span>Equipment</span></div>
+    <div class="step" data-status="required"><b>3</b><span>Equipment</span></div>
     <div class="line"></div>
-    <div class="step"><b>4</b><span>Work &amp; Materials</span></div>
+    <div class="step" data-status="required"><b>4</b><span>Work &amp; Materials</span></div>
     <div class="line"></div>
-    <div class="step"><b>5</b><span>Review &amp; Sign</span></div>
+    <div class="step" data-status="required"><b>5</b><span>Review &amp; Sign</span></div>
     <div class="line"></div>
-    <div class="step"><b>6</b><span>Complete</span></div>
+    <div class="step" data-status="required"><b>6</b><span>Complete</span></div>
   </div>
+  <div class="status-legend"><span><i class="legend-dot green"></i>Complete</span><span><i class="legend-dot yellow"></i>Missing optional info</span><span><i class="legend-dot red"></i>Missing required info</span></div>
 
 <form id="serviceForm">
 <section class="card">
-  <div class="section-title"><span>👥</span><strong>1. CUSTOMER INFORMATION</strong><small>Please enter the customer details.</small><span>⌃</span></div>
-  <div class="grid">
+  <div class="section-title"><span>👥</span><strong>1. CUSTOMER INFORMATION</strong><small>Please enter the customer details.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="grid customer-grid">
     <label class="yellow-field">Company Name *<input name="company" placeholder="e.g. ABC Manufacturing Inc." required></label>
     <label>Contact Person *<input name="contact" placeholder="e.g. John Smith" required></label>
-    <label class="full">Customer Email Addresses *
-      <div id="customerEmailList" class="contact-list"></div>
-      <button type="button" class="add-contact" onclick="addCustomerEmail()">＋ Add Another Email</button>
-    </label>
-    <label class="full">Customer Phone Numbers
-      <div id="customerPhoneList" class="contact-list"></div>
-      <button type="button" class="add-contact phone-add" onclick="addCustomerPhone()">＋ Add Another Phone</button>
-    </label>
+    <div class="dynamic-contact"><div class="field-label">Email <span>*</span></div><div id="customerEmailList" class="contact-list"><div class="contact-row email-row"><span class="contact-icon">✉</span><input type="email" name="customerEmail" placeholder="e.g. john@company.com" required><button type="button" class="remove-contact" onclick="removeContactRow(this)" aria-label="Remove email">🗑</button></div></div><button type="button" class="add-contact" onclick="addCustomerEmail()">＋ Add Email</button></div>
+    <div class="dynamic-contact"><div class="field-label">Phone</div><div id="customerPhoneList" class="contact-list"><div class="contact-row phone-row"><span class="contact-icon">☎</span><input name="customerPhone" placeholder="e.g. 416-555-1234"><button type="button" class="remove-contact" onclick="removeContactRow(this)" aria-label="Remove phone">🗑</button></div></div><button type="button" class="add-contact" onclick="addCustomerPhone()">＋ Add Phone</button></div>
     <label class="full">Service Address<input name="address" placeholder="e.g. 123 Industrial Road"></label>
     <label>City<input name="city" placeholder="e.g. Toronto"></label>
     <label>Province<select name="province"><option>ON</option><option>AB</option><option>BC</option><option>MB</option><option>NB</option><option>NL</option><option>NS</option><option>NT</option><option>NU</option><option>PE</option><option>QC</option><option>SK</option><option>YT</option></select></label>
@@ -62,8 +57,8 @@
 </section>
 
 <section class="card">
-  <div class="section-title"><span>▣</span><strong>2. SERVICE INFORMATION</strong><small>Enter service details and select service type.</small><span>⌃</span></div>
-  <div class="grid five">
+  <div class="section-title"><span>▣</span><strong>2. SERVICE INFORMATION</strong><small>Enter service details and select service type.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
+  <div class="grid service-grid">
     <label class="locked">Service Report No.<input id="reportInput" name="reportNo" readonly></label>
     <label class="yellow-field">Service Date *<input type="date" name="serviceDate" required></label>
     <label class="yellow-field">Start Time *<input type="time" name="startTime" required></label>
@@ -87,7 +82,7 @@
 </section>
 
 <section class="card">
-  <div class="section-title"><span>⚙</span><strong>3. EQUIPMENT INFORMATION</strong><small>Add the equipment / machine details.</small><span>⌃</span></div>
+  <div class="section-title"><span>⚙</span><strong>3. EQUIPMENT INFORMATION</strong><small>Add the equipment / machine details.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
   <div id="equipmentList">
     <div class="repeat equipment">
       <div class="grid six">
@@ -105,7 +100,7 @@
 </section>
 
 <section class="card">
-  <div class="section-title"><span>▣</span><strong>4. WORK PERFORMED &amp; MATERIALS</strong><small>Describe the work performed and add materials used.</small><span>⌃</span></div>
+  <div class="section-title"><span>▣</span><strong>4. WORK PERFORMED &amp; MATERIALS</strong><small>Describe the work performed and add materials used.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
   <div class="work-grid">
     <label>Work Performed *<textarea name="work" placeholder="Describe the work performed in detail..." rows="5" required></textarea></label>
     <div>
@@ -134,7 +129,7 @@
 </section>
 
 <section class="card">
-  <div class="section-title"><span>✎</span><strong>5. CUSTOMER APPROVAL</strong><small>Customer confirms the work has been completed.</small><span>⌃</span></div>
+  <div class="section-title"><span>✎</span><strong>5. CUSTOMER APPROVAL</strong><small>Customer confirms the work has been completed.</small><span class="section-status" data-section-status="required">!</span><span>⌃</span></div>
   <div class="approval">
     <label class="yellow-field">Customer Name *<input name="customerName" placeholder="e.g. John Smith" required></label>
     <div class="signature-wrap">
@@ -162,7 +157,7 @@
 <footer>AUTOMATIONTODAYCA &nbsp; | &nbsp; Toronto, ON &nbsp; | &nbsp; Reliable Solutions for a Smarter Tomorrow</footer>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="app.js?v=15"></script>
 </body>
 </html>

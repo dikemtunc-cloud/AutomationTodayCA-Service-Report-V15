@@ -1,22 +1,31 @@
-# AutomationTodayCA Service Report V15
+# AutomationTodayCA Service Report — V15
 
-## V15 additions
-- Backend-issued global Service Report sequence using Apps Script LockService.
-- Format: `ATD-SR-YYYY-MMDD-####-XXXXXX` (example: `ATD-SR-2026-0915-0053-A1B2C3`).
-- QR code in the generated customer PDF points to the Apps Script verification endpoint.
-- Public verification page confirms whether the exact report PDF exists in the official Drive archive.
-- Dynamic customer email and phone rows, start/end service time, and existing form status highlighting retained.
+## V15 changes
+- Keeps the V14 frontend/backend authentication architecture unchanged.
+- Google Client ID and server-side authorization remain in the same locations.
+- Service Report numbers are now reserved by Apps Script, not localStorage.
+- Format: `ATD-SR-YYYY-MMDD-####-XXXXXX` (date + global sequence + unique suffix).
+- Sequence starts from 52, so the next successful reservation is 53.
+- `LockService` prevents two users from receiving the same sequence number.
+- A report number cannot be saved twice to the official Drive archive.
+- Each report gets a dynamic QR code. The QR opens the Apps Script verification page.
+- Verification checks whether the exact report-number PDF exists in the official Drive archive.
+- QR is shown in the form header and embedded in the customer PDF.
+
+## Files
+- `index.html`
+- `app.js`
+- `style.css`
+- `atd-logo.png`
+- `Code.gs`
 
 ## Deployment
-1. Deploy Code.gs as a new Google Apps Script Web App.
-2. Execute as: Me.
-3. Who has access: Anyone.
-4. Keep the existing Script Properties: `ALLOWED_GOOGLE_EMAIL`, `COMPANY_EMAIL`, `GOOGLE_CLIENT_ID`, `ATD_SECRET`.
-5. In `app.js`, update only `DELIVERY_CONFIG.webAppUrl` to the new `/exec` URL.
-6. Do not place any secret in GitHub.
+1. Upload the five frontend files to the V15 GitHub Pages repository.
+2. Deploy the supplied `Code.gs` as a new Apps Script version.
+3. Keep the existing Script Properties, especially `ALLOWED_GOOGLE_EMAIL`, `COMPANY_EMAIL`, `GOOGLE_CLIENT_ID`, and `ATD_SECRET`.
+4. The frontend is already pointed to the current `/exec` URL supplied for this V15 deployment.
+5. Test with the authorized Google account first. Then test an unauthorized account.
+6. Create a report and confirm that the report number, QR, Drive PDF, email delivery, and QR verification all work.
 
-## Sequence
-The initial V15 sequence fallback is 52, so the first new reservation becomes 0053. After deployment, `ATD_REPORT_SEQUENCE` is stored in Script Properties and protected by LockService.
-
-## Verification
-The QR URL is generated from the same Apps Script Web App URL used for authentication/delivery. Update `webAppUrl` after creating the new deployment.
+## Security
+Do not move `ATD_SECRET`, `ALLOWED_GOOGLE_EMAIL`, or `COMPANY_EMAIL` into GitHub/frontend code. The Google Client ID is public configuration.

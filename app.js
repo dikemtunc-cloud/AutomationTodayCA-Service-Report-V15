@@ -1,3 +1,4 @@
+/* AutomationTodayCA Service Report — V15 */
 /* =========================================================
    GOOGLE AUTHENTICATION LOCK
    ========================================================= */
@@ -20,176 +21,116 @@ const $=s=>document.querySelector(s);
 const DELIVERY_CONFIG={
   webAppUrl:"https://script.google.com/macros/s/AKfycbxpI-rtRWmhjlhEEewXu68LFzN4xEhPiyfzbQED4wCG0_qyhBJaoQTzbeTpActu7JH9/exec"
 };
+/* =========================================================
+   V15 SERVER-RESERVED REPORT NUMBER
+   ========================================================= */
 let currentReportNo="";
 let reportNoReady=false;
+let reportReservationTimer=null;
+
 const reportNo=()=>currentReportNo;
-$("#reportNo").textContent="AUTHENTICATION REQUIRED"; $("#reportInput").value="";
+
+function setReportNumberUnavailable(){
+  reportNoReady=false;
+  currentReportNo="";
+  const display=$("#reportNo");
+  const input=$("#reportInput");
+  if(display) display.textContent="REPORT NUMBER UNAVAILABLE";
+  if(input) input.value="";
+  renderReportQr("");
+  updateFormStatus();
+}
+
+setReportNumberUnavailable();
 
 const now=new Date(), localDate=new Date(now-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
 document.querySelector('[name="serviceDate"]').value=localDate;
+function verificationUrl(reportNumber){
+  return DELIVERY_CONFIG.webAppUrl+"?mode=verify&reportNo="+encodeURIComponent(reportNumber||"");
+}
+
+function renderReportQr(value){
+  const host=$("#reportQr");
+  if(!host)return;
+  host.innerHTML="";
+  if(!value || !window.QRCode){
+    host.classList.add("hidden");
+    return;
+  }
+  try{
+    new QRCode(host,{
+      text:verificationUrl(value),
+      width:72,
+      height:72,
+      colorDark:"#0f2b5b",
+      colorLight:"#ffffff",
+      correctLevel:QRCode.CorrectLevel.M
+    });
+    host.classList.remove("hidden");
+  }catch(err){
+    console.error("QR generation failed:",err);
+    host.classList.add("hidden");
+  }
+}
 
 function reserveReportNumber(serviceDate){
   if(!googleAuthenticated || !googleCredential || !window.__ATD_AUTH_PROOF || !serviceDate){
     return Promise.resolve(false);
   }
 
-  /*
-   * V15 FIX:
-   * Use a single CORS GET request for report-number reservation and
-   * parse the Apps Script JSONP envelope as data.
-   *
-   * This avoids relying on execution of a cross-origin <script> tag
-   * after the Apps Script 302 redirect, which could leave the UI
-   * showing "REPORT NUMBER UNAVAILABLE" even though the request
-   * reached the Web App.
-   *
-   * SECURITY IS UNCHANGED:
-   * - Google ID token is still verified by Code.gs.
-   * - authorizationProof is still required.
-   * - No private secret is placed in the frontend.
-   * - The frontend still does not make the authorization decision.
-   */
+  setReportNumberUnavailable();
 
-  return new Promise(async function(resolve){
+  return new Promise(function(resolve){
+    const callbackName="atdReportNumberCallback_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const script=document.createElement("script");
+    let finished=false;
 
-    const params = new URLSearchParams();
-    params.set("mode","reserveReport");
-    params.set(
-      "callback",
-      "atdReportNumberCallback_" +
-      Date.now() +
-      "_" +
-      Math.random().toString(36).slice(2)
-    );
-    params.set("serviceDate",serviceDate);
-    params.set("googleCredential",googleCredential);
-    params.set("authorizationProof",window.__ATD_AUTH_PROOF);
-
-    const requestUrl =
-      DELIVERY_CONFIG.webAppUrl +
-      "?" +
-      params.toString();
-
-    let timeoutId = null;
-    let finished = false;
-
+    function cleanup(){
+      if(script.parentNode)script.parentNode.removeChild(script);
+      try{delete window[callbackName];}catch(_){window[callbackName]=undefined;}
+    }
     function finish(ok){
-      if(finished) return;
-      finished = true;
-      if(timeoutId) clearTimeout(timeoutId);
+      if(finished)return;
+      finished=true;
+      cleanup();
       resolve(ok);
     }
 
-    timeoutId = setTimeout(function(){
-      reportNoReady = false;
-      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
-      $("#reportInput").value = "";
-      finish(false);
-    },25000);
-
-    try{
-      const response = await fetch(
-        requestUrl,
-        {
-          method:"GET",
-          mode:"cors",
-          credentials:"omit",
-          cache:"no-store",
-          redirect:"follow"
-        }
-      );
-
-      if(!response.ok){
-        throw new Error("Report-number server returned HTTP " + response.status);
-      }
-
-      const body = await response.text();
-
-      /*
-       * Expected backend response:
-       *   atdReportNumberCallback_xxx({...});
-       *
-       * We parse only the JSON object. No arbitrary response code
-       * is executed in the browser.
-       */
-      const open = body.indexOf("(");
-      const close = body.lastIndexOf(")");
-
-      if(open < 0 || close <= open){
-        throw new Error("Invalid report-number response.");
-      }
-
-      const jsonText = body.slice(open + 1, close).trim();
-      const result = JSON.parse(jsonText);
-
-      if(result && result.ok === true && result.reportNo){
-        currentReportNo = String(result.reportNo);
-        reportNoReady = true;
-
-        $("#reportNo").textContent = currentReportNo;
-        $("#reportInput").value = currentReportNo;
-
+    window[callbackName]=function(result){
+      if(result && result.ok===true && result.reportNo){
+        currentReportNo=String(result.reportNo);
+        reportNoReady=true;
+        $("#reportNo").textContent=currentReportNo;
+        $("#reportInput").value=currentReportNo;
+        renderReportQr(currentReportNo);
         updateFormStatus();
         finish(true);
-        return;
+      }else{
+        console.error("Report number reservation failed:",result);
+        finish(false);
       }
+    };
 
-      reportNoReady = false;
-      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
-      $("#reportInput").value = "";
+    script.onerror=function(){finish(false);};
 
-      console.error(
-        "Report-number reservation rejected by server:",
-        result && result.error ? result.error : result
-      );
+    const params=new URLSearchParams();
+    params.set("mode","reserveReport");
+    params.set("callback",callbackName);
+    params.set("serviceDate",serviceDate);
+    params.set("googleCredential",googleCredential);
+    params.set("authorizationProof",window.__ATD_AUTH_PROOF);
+    script.src=DELIVERY_CONFIG.webAppUrl+"?"+params.toString();
+    document.head.appendChild(script);
 
-      finish(false);
-
-    }catch(err){
-
-      console.error(
-        "Report-number reservation failed:",
-        err
-      );
-
-      reportNoReady = false;
-      $("#reportNo").textContent = "REPORT NUMBER UNAVAILABLE";
-      $("#reportInput").value = "";
-
-      finish(false);
-    }
-
+    setTimeout(function(){finish(false);},20000);
   });
 }
 
-let reportReservationTimer=null;
 function refreshReportNumber(){
   clearTimeout(reportReservationTimer);
-  reportReservationTimer=setTimeout(function(){
-    const dateEl=document.querySelector('[name="serviceDate"]');
-    if(dateEl && dateEl.value) reserveReportNumber(dateEl.value);
-  },120);
-}
-
-function verificationUrl(reportNumber){
-  return DELIVERY_CONFIG.webAppUrl+"?mode=verify&reportNo="+encodeURIComponent(reportNumber||"");
-}
-
-function makeQrDataUrl(value){
-  return new Promise(function(resolve){
-    if(!window.QRCode || !value){resolve(null);return;}
-    const host=document.createElement("div");
-    host.style.cssText="position:fixed;left:-10000px;top:-10000px;width:180px;height:180px;background:#fff;";
-    document.body.appendChild(host);
-    try{
-      new QRCode(host,{text:verificationUrl(value),width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
-      setTimeout(function(){
-        const canvas=host.querySelector("canvas"),img=host.querySelector("img");
-        const result=canvas?canvas.toDataURL("image/png"):(img?img.src:null);
-        host.remove();resolve(result);
-      },80);
-    }catch(e){host.remove();resolve(null);}
-  });
+  const dateEl=document.querySelector('[name="serviceDate"]');
+  if(!dateEl || !dateEl.value)return;
+  reportReservationTimer=setTimeout(function(){reserveReportNumber(dateEl.value);},120);
 }
 
 function updateApprovalTime(){const n=new Date();$("#approvalTime").textContent=n.toLocaleString("en-CA",{dateStyle:"medium",timeStyle:"short"});}
@@ -242,7 +183,7 @@ ctx.lineWidth=3;ctx.lineCap="round";ctx.lineJoin="round";
 canvas.addEventListener("touchstart",start,{passive:false});canvas.addEventListener("touchmove",move,{passive:false});canvas.addEventListener("touchend",end);
 function clearSignature(){ctx.clearRect(0,0,canvas.width,canvas.height);hasSig=false;updateFormStatus()}
 function collect(){
- const fd=new FormData($("#serviceForm")),o=Object.fromEntries(fd.entries());o.reportNo=currentReportNo;
+ const fd=new FormData($("#serviceForm")),o=Object.fromEntries(fd.entries());o.reportNo=reportNo();
  o.customerEmails=[...document.querySelectorAll('[name="customerEmail"]')].map(i=>i.value.trim()).filter(Boolean);
  o.customerPhones=[...document.querySelectorAll('[name="customerPhone"]')].map(i=>i.value.trim()).filter(Boolean);
  o.email=o.customerEmails[0]||"";o.phone=o.customerPhones[0]||"";
@@ -251,7 +192,7 @@ function collect(){
  o.signature=hasSig?canvas.toDataURL("image/png"):"";o.generatedAt=new Date().toISOString();return o;
 }
 const requiredSelectors=['[name="company"]','[name="contact"]','[name="serviceDate"]','[name="startTime"]','[name="endTime"]','[name="technician"]','[name="work"]','[name="customerName"]'];
-function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);return missing;}
+function markRequiredFields(){let missing=false;requiredSelectors.forEach(sel=>{const el=$(sel);if(!el)return;const bad=!String(el.value||"").trim();el.classList.toggle("missing-required",bad);if(bad)missing=true;});const emails=[...document.querySelectorAll('[name="customerEmail"]')];const emailOK=emails.some(i=>String(i.value||"").trim()&&i.checkValidity());emails.forEach(i=>i.classList.toggle("missing-required",!emailOK&&!String(i.value||"").trim()));if(!emailOK)missing=true;const sw=document.querySelector(".signature-wrap");if(sw)sw.classList.toggle("missing-required-wrap",!hasSig);if(!reportNoReady)missing=true;return missing;}
 function sectionState(n){
  if(n===6)return $("#review")&&!$("#review").classList.contains("hidden")?"complete":"optional";
  if(n===3){return [...document.querySelectorAll(".equipment input")].some(i=>String(i.value||"").trim())?"complete":"optional";}
@@ -279,7 +220,7 @@ function renderReview(o,finalized=false){
    ? `<div class="review-actions"><button type="button" id="editReport" class="secondary-btn">EDIT REPORT</button><button type="button" id="generateCustomerPdf" class="primary-btn">GENERATE CUSTOMER PDF</button><button type="button" id="sendCustomerCopy" class="primary-btn">SEND CUSTOMER COPY</button><button type="button" id="printReview" class="secondary-btn">PRINT REVIEW</button></div><div id="deliveryStatus" class="delivery-status"></div>`
    : `<div class="review-actions"><button type="button" id="editReport" class="secondary-btn">EDIT REPORT</button><button type="button" id="submitConfirm" class="primary-btn">SUBMIT &amp; CONFIRM</button></div>`;
  $("#reviewContent").innerHTML=`
- <div class="review-header"><div><div class="review-kicker">CUSTOMER REVIEW</div><h2>${escapeHtml(o.reportNo)}</h2><div class="verification-label">QR verification is embedded in the customer PDF.</div></div><div class="review-status ${statusClass}">${escapeHtml(o.result||"Completed")}</div></div>
+ <div class="review-header"><div><div class="review-kicker">CUSTOMER REVIEW</div><h2>${escapeHtml(o.reportNo)}</h2></div><div class="review-status ${statusClass}">${escapeHtml(o.result||"Completed")}</div></div>
  <div class="review-grid">
    <div><span>Customer</span><strong>${escapeHtml(o.company||"—")}</strong></div>
    <div><span>Contact Person</span><strong>${escapeHtml(o.contact||"—")}</strong></div>
@@ -303,7 +244,7 @@ function renderReview(o,finalized=false){
  </div>
  ${acceptance}
  ${actions}
- <p class="next-report">Next Service Report: <strong>${escapeHtml(reportNo())}</strong></p>`;
+ <p class="next-report">Reserved Service Report No.: <strong>${escapeHtml(reportNo()||"REPORT NUMBER UNAVAILABLE")}</strong></p>`;
 
  $("#editReport").addEventListener("click",()=>{
    $("#review").classList.add("hidden");
@@ -331,7 +272,7 @@ function renderReview(o,finalized=false){
 $("#serviceForm").addEventListener("submit",e=>{
  e.preventDefault();
  const form=$("#serviceForm");
- if(!reportNoReady || !currentReportNo){alert("Service Report Number is not ready. Please wait a moment and try again.");return}
+ if(!reportNoReady){alert("Service Report Number is not ready. Please wait a moment and try again.");return}
  if(!form.checkValidity() || markRequiredFields()){form.reportValidity();updateFormStatus();return}
  if(!hasSig){markRequiredFields();alert("Customer signature is required.");return}
  const o=collect();
@@ -345,6 +286,23 @@ $("#serviceForm").addEventListener("submit",e=>{
  window.scrollTo({top:0,behavior:"smooth"});
 });
 function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+async function makeQrDataUrl(value){
+  return new Promise(function(resolve){
+    if(!window.QRCode || !value){resolve(null);return;}
+    const host=document.createElement("div");
+    host.style.cssText="position:fixed;left:-10000px;top:-10000px;width:180px;height:180px;background:#fff;";
+    document.body.appendChild(host);
+    try{
+      new QRCode(host,{text:verificationUrl(value),width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
+      setTimeout(function(){
+        const canvas=host.querySelector("canvas"),img=host.querySelector("img");
+        const result=canvas?canvas.toDataURL("image/png"):(img?img.src:null);
+        host.remove();resolve(result);
+      },80);
+    }catch(e){host.remove();resolve(null);}
+  });
+}
+
 async function generatePDF(saveFile=true){
  try{
   const o=JSON.parse(localStorage.getItem("atd_last_report")||"null");
@@ -353,12 +311,12 @@ async function generatePDF(saveFile=true){
     alert("PDF engine is not loaded. Please refresh the page and try again.");return;
   }
   const {jsPDF}=window.jspdf;
-  const qrDataUrl=await makeQrDataUrl(o.reportNo);
   const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"letter"});
   const W=doc.internal.pageSize.getWidth(), H=doc.internal.pageSize.getHeight(), M=14;
   const navy=[15,43,91], yellow=[255,223,34];
   const logo=new Image(); logo.src="atd-logo.png";
   await new Promise(resolve=>{logo.onload=resolve;logo.onerror=resolve});
+  const qrDataUrl=await makeQrDataUrl(o.reportNo);
 
   function textLines(text,w,size=8){doc.setFontSize(size);return doc.splitTextToSize(String(text||"—"),w)}
   function ensure(y,need=18){if(y+need>H-18){doc.addPage();return 16}return y}
@@ -394,8 +352,8 @@ async function generatePDF(saveFile=true){
   doc.setFont("helvetica","bold");doc.setFontSize(19);doc.setTextColor(...navy);doc.text("SERVICE REPORT",W/2,15,{align:"center"});
   doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(80,94,112);doc.text("Field Service Report & Customer Acceptance",W/2,20,{align:"center"});
   doc.setFont("helvetica","bold");doc.setFontSize(7);doc.text("CUSTOMER COPY",W/2,24,{align:"center"});
-  doc.setFillColor(255,248,191);doc.setDrawColor(229,207,28);doc.roundedRect(W-72,7,58,16,2,2,"FD");doc.setTextColor(50,58,68);doc.setFontSize(6.5);doc.text("SERVICE REPORT NO.",W-69,12.5);doc.setFont("courier","bold");doc.setFontSize(8);doc.text(o.reportNo,W-69,19);
-  if(qrDataUrl){try{doc.addImage(qrDataUrl,"PNG",W-47,26,33,33);doc.setFont("helvetica","bold");doc.setFontSize(6);doc.setTextColor(70,82,98);doc.text("SCAN TO VERIFY",W-30.5,61,{align:"center"});}catch(e){}}
+  doc.setFillColor(255,248,191);doc.setDrawColor(229,207,28);doc.roundedRect(W-84,7,70,16,2,2,"FD");doc.setTextColor(50,58,68);doc.setFontSize(6.5);doc.text("SERVICE REPORT NO.",W-81,12.5);doc.setFont("courier","bold");doc.setFontSize(7.2);doc.text(o.reportNo,W-81,19);
+  if(qrDataUrl){try{doc.addImage(qrDataUrl,"PNG",W-30,26,16,16);}catch(e){}}
 
   let y=29;
   y=section("1. CUSTOMER INFORMATION",y);
@@ -445,6 +403,10 @@ async function deliverReport(o){
    return false;
  }
  try{
+   if(!reportNoReady || !o || !o.reportNo){
+     if(status) status.textContent="Service Report Number is not ready. Please wait and try again.";
+     return false;
+   }
    if(button){button.disabled=true;button.textContent="SENDING...";}
    const dataUri=await generatePDF(false);
    if(!dataUri) throw new Error("PDF generation failed");
@@ -739,6 +701,7 @@ async function handleGoogleCredential(response){
     window.__ATD_AUTH_PROOF=proof.proof;
 
     unlockServiceReport();
+    await reserveReportNumber(document.querySelector('[name="serviceDate"]')?.value || "");
 
   }catch(err){
 
@@ -943,11 +906,6 @@ function unlockServiceReport(){
 
   if(overlay){
     overlay.remove();
-  }
-
-  const dateEl=document.querySelector('[name="serviceDate"]');
-  if(dateEl && dateEl.value){
-    reserveReportNumber(dateEl.value);
   }
 
 }
