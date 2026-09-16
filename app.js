@@ -18,8 +18,63 @@ const $=s=>document.querySelector(s);
 
 // Google Apps Script Web App endpoint. Paste the deployed /exec URL here after deployment.
 const DELIVERY_CONFIG={
-  webAppUrl:"https://script.google.com/macros/s/AKfycbx1sno8dbjjgdaV8P-znggJRIfXQ7RRUboVDaPI_XVKW6GE07R5Otb-98Ezbk5IvaSS-w/exec"
+  webAppUrl:"https://script.google.com/macros/s/AKfycbxpI-rtRWmhjlhEEewXu68LFzN4xEhPiyfzbQED4wCG0_qyhBJaoQTzbeTpActu7JH9/exec"
 };
+
+/* =========================================================
+   SERVICE REPORT VERIFICATION / QR
+   ========================================================= */
+
+function createVerificationToken(){
+  if(window.crypto && typeof window.crypto.randomUUID==="function"){
+    return window.crypto.randomUUID().replace(/-/g,"");
+  }
+  const bytes=new Uint8Array(24);
+  if(window.crypto && typeof window.crypto.getRandomValues==="function"){
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+  }
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`;
+}
+
+function getVerificationUrl(token){
+  if(!token)return "";
+  const page=new URL("verification.html",window.location.href);
+  page.search="";
+  page.searchParams.set("token",token);
+  return page.href;
+}
+
+let qrLibraryPromise=null;
+function loadQRious(){
+  if(window.QRious)return Promise.resolve();
+  if(qrLibraryPromise)return qrLibraryPromise;
+  qrLibraryPromise=new Promise((resolve,reject)=>{
+    const existing=document.querySelector('script[data-atd-qrious="1"]');
+    if(existing){
+      existing.addEventListener("load",resolve,{once:true});
+      existing.addEventListener("error",()=>reject(new Error("QR library could not be loaded.")),{once:true});
+      return;
+    }
+    const script=document.createElement("script");
+    script.src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js";
+    script.async=true;
+    script.dataset.atdQrious="1";
+    script.onload=()=>window.QRious?resolve():reject(new Error("QR library is unavailable."));
+    script.onerror=()=>reject(new Error("QR library could not be loaded."));
+    document.head.appendChild(script);
+  });
+  return qrLibraryPromise;
+}
+
+async function generateVerificationQrDataUrl(token,size=220){
+  const url=getVerificationUrl(token);
+  if(!url)return "";
+  await loadQRious();
+  const canvas=document.createElement("canvas");
+  const qr=new QRious({element:canvas,value:url,size,level:"H",background:"white",foreground:"black"});
+  return qr.toDataURL("image/png");
+}
 let counter=Number(localStorage.getItem("atd_service_counter")||"1");
 const reportNo=()=>`SR_ATD_22AD0005${String(counter).padStart(3,"0")}`;
 $("#reportNo").textContent=reportNo(); $("#reportInput").value=reportNo();
@@ -128,6 +183,7 @@ function renderReview(o,finalized=false){
  <div class="review-section"><h3>Equipment</h3><table><thead><tr><th>Equipment / Machine</th><th>Manufacturer</th><th>Model</th><th>Serial Number</th></tr></thead><tbody>${eqRows||'<tr><td colspan="4">No equipment recorded.</td></tr>'}</tbody></table></div>
  <div class="review-section"><h3>Work Performed</h3><div class="review-text">${escapeHtml(o.work||"—")}</div></div>
  <div class="review-section"><h3>Parts / Materials Used</h3><table><thead><tr><th>Part Number</th><th>Description</th><th>Qty</th></tr></thead><tbody>${partRows||'<tr><td colspan="3">No parts or materials recorded.</td></tr>'}</tbody></table></div>
+ <div class="review-verification" id="reviewVerification" style="display:none"></div>
  <div class="review-grid">
    <div><span>Technician Notes</span><strong>${escapeHtml(o.techNotes||"—")}</strong></div>
    <div><span>Customer Comments</span><strong>${escapeHtml(o.customerComments||"—")}</strong></div>
@@ -137,6 +193,24 @@ function renderReview(o,finalized=false){
  ${acceptance}
  ${actions}
  <p class="next-report">Next Service Report: <strong>${reportNo()}</strong></p>`;
+
+ if(finalized && o.verificationToken){
+   const verificationBox=$("#reviewVerification");
+   if(verificationBox){
+     verificationBox.style.display="flex";
+     verificationBox.style.alignItems="center";
+     verificationBox.style.gap="16px";
+     verificationBox.style.margin="18px 0";
+     verificationBox.style.padding="14px";
+     verificationBox.style.border="1px solid #d5dce5";
+     verificationBox.style.borderRadius="10px";
+     verificationBox.innerHTML=`<div><strong>QR VERIFICATION</strong><div style="margin-top:4px;color:#5b6878;font-size:13px">Scan to verify this Service Report.</div></div><img id="reviewVerificationQr" alt="Service Report verification QR" style="width:120px;height:120px;margin-left:auto;background:#fff">`;
+     generateVerificationQrDataUrl(o.verificationToken,260).then(src=>{
+       const img=$("#reviewVerificationQr");
+       if(img && src)img.src=src;
+     }).catch(err=>console.error("Verification QR generation failed:",err));
+   }
+ }
 
  $("#editReport").addEventListener("click",()=>{
    $("#review").classList.add("hidden");
@@ -152,6 +226,8 @@ function renderReview(o,finalized=false){
  }else{
    $("#submitConfirm").addEventListener("click",async()=>{
      const latest=collect();
+     latest.verificationToken=createVerificationToken();
+     latest.verificationUrl=getVerificationUrl(latest.verificationToken);
      latest.finalizedAt=new Date().toISOString();
      localStorage.setItem("atd_last_report",JSON.stringify(latest));
      counter=Math.min(counter+1,999);
@@ -192,8 +268,6 @@ async function generatePDF(saveFile=true){
   const navy=[15,43,91], yellow=[255,223,34];
   const logo=new Image(); logo.src="atd-logo.png";
   await new Promise(resolve=>{logo.onload=resolve;logo.onerror=resolve});
-  if(!o.verificationToken) throw new Error("Verification token is missing. Confirm the report first.");
-  addVerificationQR(doc,o.verificationToken);
 
   function textLines(text,w,size=8){doc.setFontSize(size);return doc.splitTextToSize(String(text||"—"),w)}
   function ensure(y,need=18){if(y+need>H-18){doc.addPage();return 16}return y}
@@ -230,8 +304,19 @@ async function generatePDF(saveFile=true){
   doc.setFont("helvetica","normal");doc.setFontSize(8.5);doc.setTextColor(80,94,112);doc.text("Field Service Report & Customer Acceptance",W/2,20,{align:"center"});
   doc.setFont("helvetica","bold");doc.setFontSize(7);doc.text("CUSTOMER COPY",W/2,24,{align:"center"});
   doc.setFillColor(255,248,191);doc.setDrawColor(229,207,28);doc.roundedRect(W-72,7,58,16,2,2,"FD");doc.setTextColor(50,58,68);doc.setFontSize(6.5);doc.text("SERVICE REPORT NO.",W-69,12.5);doc.setFont("courier","bold");doc.setFontSize(8);doc.text(o.reportNo,W-69,19);
+  if(o.verificationToken){
+    try{
+      const qrDataUrl=await generateVerificationQrDataUrl(o.verificationToken,260);
+      if(qrDataUrl){
+        doc.addImage(qrDataUrl,"PNG",W-42,26,28,28);
+        doc.setFont("helvetica","bold");doc.setFontSize(5.5);doc.setTextColor(70,82,98);doc.text("SCAN TO VERIFY",W-28,56,{align:"center"});
+      }
+    }catch(qrErr){
+      console.error("Verification QR generation failed:",qrErr);
+    }
+  }
 
-  let y=29;
+  let y=o.verificationToken?61:29;
   y=section("1. CUSTOMER INFORMATION",y);
   field(M,y,58,"Company Name",o.company,true);field(M+61,y,58,"Contact Person",o.contact);field(M+122,y,62,"Email",(o.customerEmails||[o.email||""]).join("; "));y+=16;
   field(M,y,58,"Phone",(o.customerPhones||[o.phone||""]).join("; "));field(M+61,y,88,"Service Address",o.address);field(M+152,y,32,"City",o.city);y+=16;
@@ -270,48 +355,6 @@ async function generatePDF(saveFile=true){
   return dataUri;
  }catch(err){console.error("Customer PDF generation failed:",err);alert("Customer PDF could not be generated. Please refresh the page and try again.");return null;}
 }
-
-async function createVerificationToken(o){
-  if(!DELIVERY_CONFIG.webAppUrl || DELIVERY_CONFIG.webAppUrl.includes("PASTE_GOOGLE_APPS_SCRIPT")){
-    throw new Error("Delivery is not configured.");
-  }
-  const response=await fetch(DELIVERY_CONFIG.webAppUrl,{
-    method:"POST",
-    headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body:JSON.stringify({
-      action:"createVerification",
-      googleCredential,
-      authorizationProof:window.__ATD_AUTH_PROOF||"",
-      reportNo:o.reportNo,
-     verificationToken:o.verificationToken,
-      verificationData:{
-        reportNo:o.reportNo,
-        company:o.company,
-        contact:o.contact,
-        serviceDate:o.serviceDate,
-        technician:o.technician,
-        serviceType:o.serviceType,
-        startTime:o.startTime,
-        endTime:o.endTime,
-        workOrder:o.workOrder,
-        equipment:o.equipment||[],
-        result:o.result||"Completed"
-      }
-    })
-  });
-  const result=await response.json();
-  if(!result.ok || !result.token) throw new Error(result.error||"Verification record could not be created.");
-  return result.token;
-}
-function addVerificationQR(doc,token){
-  if(!window.QRious) throw new Error("QR engine is not loaded.");
-  const canvas=document.createElement("canvas");
-  new QRious({element:canvas,value:location.origin+"/verification.html?token="+encodeURIComponent(token),size:180,level:"H"});
-  const img=canvas.toDataURL("image/png");
-  const W=doc.internal.pageSize.getWidth();
-  doc.addImage(img,"PNG",W-48,10,30,30);
-}
-
 async function deliverReport(o){
  const status=$("#deliveryStatus");
  const button=$("#sendCustomerCopy");
@@ -329,6 +372,23 @@ async function deliverReport(o){
      googleCredential,
      authorizationProof:window.__ATD_AUTH_PROOF||"",
      reportNo:o.reportNo,
+     verificationToken:o.verificationToken||"",
+     verificationUrl:o.verificationUrl||getVerificationUrl(o.verificationToken||""),
+     verificationData:{
+       reportNo:o.reportNo,
+       company:o.company||"",
+       contact:o.contact||"",
+       serviceDate:o.serviceDate||"",
+       technician:o.technician||"",
+       serviceType:o.serviceType||"",
+       startTime:o.startTime||"",
+       endTime:o.endTime||"",
+       workOrder:o.workOrder||"",
+       equipment:Array.isArray(o.equipment)?o.equipment.map(e=>({
+         equipment:e.equipment||"",manufacturer:e.manufacturer||"",model:e.model||"",serial:e.serial||""
+       })):[],
+       result:o.result||"Completed"
+     },
      customerEmail:o.email,
      customerEmails:o.customerEmails||[o.email].filter(Boolean),
      company:o.company,
