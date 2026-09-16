@@ -1,0 +1,21 @@
+{
+  "version": "V14 QR verification patch",
+  "files": [
+    {
+      "name": "Code.gs",
+      "bytes": 24166,
+      "sha256": "7d587ae0d57a2ed7eddc60d3499b5e977ba312b0080f7067fee291151010a8ec"
+    },
+    {
+      "name": "app.js",
+      "bytes": 36388,
+      "sha256": "a21f67d8dc1aa4fc1052585ac025a501915a481441f2738cc780988bba33cc97"
+    },
+    {
+      "name": "verification.html",
+      "bytes": 7000,
+      "sha256": "43f4a9438b964454b6fe1b27b3996ce6a1b12d0644dc84adf5765baf03fcd032"
+    }
+  ],
+  "security_note": "Existing V14 authentication/security code was preserved; QR verification was added as a separate feature."
+}
